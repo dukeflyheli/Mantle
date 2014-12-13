@@ -39,6 +39,63 @@ static NSString * const MTLJSONAdapterThrownExceptionErrorKey = @"MTLJSONAdapter
 
 @end
 
+@interface NSString (Inflections)
+- (NSString *)underscore;
+- (NSString *)camelcase;
+@end
+
+@implementation NSString (Inflections)
+
+- (NSString *)underscore
+{
+    NSScanner *scanner = [NSScanner scannerWithString:self];
+    scanner.caseSensitive = YES;
+    
+    NSCharacterSet *uppercase = [NSCharacterSet uppercaseLetterCharacterSet];
+    NSCharacterSet *lowercase = [NSCharacterSet lowercaseLetterCharacterSet];
+    
+    NSString *buffer = nil;
+    NSMutableString *output = [NSMutableString string];
+    
+    while (scanner.isAtEnd == NO) {
+        
+        if ([scanner scanCharactersFromSet:uppercase intoString:&buffer]) {
+            [output appendString:[buffer lowercaseString]];
+        }
+        
+        if ([scanner scanCharactersFromSet:lowercase intoString:&buffer]) {
+            [output appendString:buffer];
+            if (!scanner.isAtEnd)
+                [output appendString:@"_"];
+        }
+    }
+    
+    return [NSString stringWithString:output];
+}
+
+- (NSString *)camelcase
+{
+    NSArray *components = [self componentsSeparatedByString:@"_"];
+    NSMutableString *output = [NSMutableString string];
+    
+    for (NSUInteger i = 0; i < components.count; i++) {
+        if (i == 0) {
+            [output appendString:components[i]];
+        } else {
+            [output appendString:[components[i] capitalizedString]];
+        }
+    }
+    
+    return [NSString stringWithString:output];
+}
+
+- (NSString *)classify
+{
+    return [[self camelcase] capitalizedString];
+}
+
+@end
+
 @implementation MTLJSONAdapter
 
 #pragma mark Convenience methods
@@ -138,12 +195,24 @@ static NSString * const MTLJSONAdapterThrownExceptionErrorKey = @"MTLJSONAdapter
 	if (self == nil) return nil;
 
 	_modelClass = modelClass;
-	_JSONKeyPathsByPropertyKey = [[modelClass JSONKeyPathsByPropertyKey] copy];
 
 	NSMutableDictionary *dictionaryValue = [[NSMutableDictionary alloc] initWithCapacity:JSONDictionary.count];
 
-	NSSet *propertyKeys = [self.modelClass propertyKeys];
+	NSMutableSet *propertyKeys = [[self.modelClass propertyKeys] mutableCopy];
 
+    NSMutableDictionary *tempJSONKeyPaths = [[modelClass JSONKeyPathsByPropertyKey] mutableCopy];
+    
+    for (NSString *key in [self.modelClass propertyKeys]){
+        id value = tempJSONKeyPaths[key];
+        if (value == nil){
+            NSString *snake = [key underscore];
+            [tempJSONKeyPaths setObject:snake forKey:key];            
+        }else{
+        }
+    }
+    
+    _JSONKeyPathsByPropertyKey = [tempJSONKeyPaths copy];
+    
 	for (NSString *mappedPropertyKey in self.JSONKeyPathsByPropertyKey) {
 		if (![propertyKeys containsObject:mappedPropertyKey]) {
 			NSAssert(NO, @"%@ is not a property of %@.", mappedPropertyKey, modelClass);
@@ -227,9 +296,24 @@ static NSString * const MTLJSONAdapterThrownExceptionErrorKey = @"MTLJSONAdapter
 
 	_model = model;
 	_modelClass = model.class;
-	_JSONKeyPathsByPropertyKey = [[model.class JSONKeyPathsByPropertyKey] copy];
+    _JSONKeyPathsByPropertyKey = [[model.class JSONKeyPathsByPropertyKey] copy];
 
-	return self;
+    NSMutableSet *propertyKeys = [[_modelClass propertyKeys] mutableCopy];
+    
+    NSMutableDictionary *tempJSONKeyPaths = [[_modelClass JSONKeyPathsByPropertyKey] mutableCopy];
+    
+    for (NSString *key in [_modelClass propertyKeys]){
+        id value = tempJSONKeyPaths[key];
+        if (value == nil){
+            NSString *snake = [key underscore];
+            [tempJSONKeyPaths setObject:snake forKey:key];
+        }else{
+        }
+    }
+    
+    _JSONKeyPathsByPropertyKey = [tempJSONKeyPaths copy];
+
+    return self;
 }
 
 #pragma mark Serialization
