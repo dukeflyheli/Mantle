@@ -46,31 +46,80 @@ static NSString * const MTLJSONAdapterThrownExceptionErrorKey = @"MTLJSONAdapter
 
 @implementation NSString (Inflections)
 
-- (NSString *)underscore
-{
-    NSScanner *scanner = [NSScanner scannerWithString:self];
-    scanner.caseSensitive = YES;
+static NSArray * TTTComponentsBySplittingOnWhitespaceWithString(NSString *string) {
+//    string = [string stringByTrimmingCharactersInSet:[NSCharacterSet uppercaseLetterCharacterSet]];
     
-    NSCharacterSet *uppercase = [NSCharacterSet uppercaseLetterCharacterSet];
-    NSCharacterSet *lowercase = [NSCharacterSet lowercaseLetterCharacterSet];
+    NSArray *components = [string componentsSeparatedByCharactersInSet:[NSCharacterSet uppercaseLetterCharacterSet]];
+    components = [components filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self <> ''"]];
     
-    NSString *buffer = nil;
-    NSMutableString *output = [NSMutableString string];
-    
-    while (scanner.isAtEnd == NO) {
-        
-        if ([scanner scanCharactersFromSet:uppercase intoString:&buffer]) {
-            [output appendString:[buffer lowercaseString]];
+    return components;
+}
+
+NSString *splitOnCapital(NSString *s) {
+    NSRange upcaseRange = NSMakeRange('A', 26);
+    NSRange numberRange = NSMakeRange('0', 10);
+    NSIndexSet *upcaseSet = [NSIndexSet indexSetWithIndexesInRange:upcaseRange];
+    NSIndexSet *numberSet = [NSIndexSet indexSetWithIndexesInRange:numberRange];
+    NSMutableString *result = [NSMutableString string];
+    NSMutableString *oneWord = [NSMutableString string];
+    BOOL prevLetterIsUc = NO;
+    for (int i = 0; i < s.length; i++) {
+        char oneChar = [s characterAtIndex:i];
+        if ([upcaseSet containsIndex:oneChar]||[numberSet containsIndex:oneChar]) {
+            if ( prevLetterIsUc ) {
+            } else {
+                if (result.length == 0) {
+                    [result appendFormat:@"%@", [oneWord lowercaseString]];
+                }else {
+                    [result appendFormat:@"_%@", [oneWord lowercaseString]];
+                }
+                oneWord = [NSMutableString string];
+            }
+            prevLetterIsUc = YES;
+        } else {
+            prevLetterIsUc = NO;
         }
-        
-        if ([scanner scanCharactersFromSet:lowercase intoString:&buffer]) {
-            [output appendString:buffer];
-            if (!scanner.isAtEnd)
-                [output appendString:@"_"];
-        }
+        [oneWord appendFormat:@"%c", oneChar];
+    }
+    if (oneWord.length > 0) {
+        [result appendFormat:@"_%@", [oneWord lowercaseString]];
     }
     
-    return [NSString stringWithString:output];
+    NSRange firstChar = [result rangeOfString:@"_"];
+    if (firstChar.location == 0 ){
+        result = [[result stringByReplacingCharactersInRange:firstChar withString:@""] mutableCopy];
+    }
+    return result;
+}
+
+- (NSString *)underscore
+{
+
+    NSString *str = splitOnCapital(self);
+    return str;
+//    NSScanner *scanner = [NSScanner scannerWithString:self];
+//    scanner.caseSensitive = YES;
+//    
+//    NSCharacterSet *uppercase = [NSCharacterSet uppercaseLetterCharacterSet];
+//    NSCharacterSet *lowercase = [NSCharacterSet lowercaseLetterCharacterSet];
+//    
+//    NSString *buffer = nil;
+//    NSMutableString *output = [NSMutableString string];
+//    
+//    while (scanner.isAtEnd == NO) {
+//        
+//        if ([scanner scanCharactersFromSet:uppercase intoString:&buffer]) {
+//            [output appendString:[buffer lowercaseString]];
+//        }
+//        
+//        if ([scanner scanCharactersFromSet:lowercase intoString:&buffer]) {
+//            [output appendString:buffer];
+//            if (!scanner.isAtEnd)
+//                [output appendString:@"_"];
+//        }
+//    }
+//    
+//    return [NSString stringWithString:output];
 }
 
 - (NSString *)camelcase
@@ -233,7 +282,7 @@ static NSString * const MTLJSONAdapterThrownExceptionErrorKey = @"MTLJSONAdapter
 
 		id value;
 		@try {
-			value = [JSONDictionary valueForKeyPath:JSONKeyPath];
+            value = [JSONDictionary valueForKeyPath:JSONKeyPath];
 		} @catch (NSException *ex) {
 			if (error != NULL) {
 				NSDictionary *userInfo = @{
