@@ -308,7 +308,9 @@ NSString *splitOnCapital(NSString *s) {
 				value = [transformer transformedValue:value] ?: NSNull.null;
 			}
 
-			dictionaryValue[propertyKey] = value;
+            if (![value isEqual:NSNull.null]) {
+                dictionaryValue[propertyKey] = value;
+            }
 		} @catch (NSException *ex) {
 			NSLog(@"*** Caught exception %@ parsing JSON key path \"%@\" from: %@", ex, JSONKeyPath, JSONDictionary);
 
